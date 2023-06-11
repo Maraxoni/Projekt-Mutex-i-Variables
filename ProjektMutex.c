@@ -102,10 +102,9 @@ void* miasto_A(void* arg) {
             printf("---\n");
             printQueue(*qA);
             printQueue(*qB);
-            printf("MiastoA-%d KolejkaA-%d --> [>> %s >>] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
-        } else {
-            printf("MiastoA-%d KolejkaA-%d --> [>> %s >>] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
-        }
+        } 
+        printf("MiastoA-%d KolejkaA-%d --> [>> %s >>] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
+        
         
         insertQueue(qB, temp);
 
@@ -134,10 +133,9 @@ void* miasto_B(void* arg) {
             printf("---\n");
             printQueue(*qA);
             printQueue(*qB);
-            printf("MiastoA-%d KolejkaA-%d --> [<< %s <<] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
-        } else {
-            printf("MiastoA-%d KolejkaA-%d --> [<< %s <<] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
         }
+        printf("MiastoA-%d KolejkaA-%d --> [<< %s <<] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
+        
         
         insertQueue(qA, temp);
         
@@ -173,8 +171,8 @@ int main(int argc, char** argv) {
     
     
 
-    fprintf(stdout,"Nowa wartosc zmiennej info: %d\n", info);
-    fprintf(stdout,"Nowa wartosc zmiennej cars: %d\n", cars);
+    fprintf(stdout,"info: %d\n", info);
+    fprintf(stdout,"cars: %d\n", cars);
 
     Queue* queueA = NULL;
     Queue* queueB = NULL;
@@ -185,14 +183,16 @@ int main(int argc, char** argv) {
         sprintf(car, "Car%d", i + 1);
         insertQueue(&queueA, car);
     }
+    printf("Starting Queue:\n");
     printQueue(queueA);
     printQueue(queueB);
+    printf("-----\n");
+
     queues[0] = queueA;
     queues[1] = queueB;
 
-    pthread_t* tid1 = malloc(cars * sizeof(pthread_t));  // Poprawiony rozmiar alokacji
-    pthread_t* tid2 = malloc(cars * sizeof(pthread_t));  // Poprawiony rozmiar alokacji
-
+    pthread_t* tid1 = malloc(cars * sizeof(pthread_t));  // Alokacja pamieci
+    pthread_t* tid2 = malloc(cars * sizeof(pthread_t));  // Alokacja pamieci
 
     for (int i = 0; i < cars; i++) {
         pthread_create(&tid1[i], NULL, miasto_A, &queues);
