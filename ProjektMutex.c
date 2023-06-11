@@ -2,153 +2,175 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <string.h>
 
 #define MAX 100
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t bridge_empty = PTHREAD_COND_INITIALIZER;
 
-int count_CityA = 0;
-int count_CityB = 0;
+int count_CityA = 3;
+int count_CityB = 7;
 
-typedef struct {
-    int id;
+typedef struct Queue {
     char samochod[MAX];
-    struct Queue *next;
+    struct Queue* next;
 } Queue;
 
-// Function to insert a new node at the beginning of the linked list
-void insert(Queue** head, const char* samochod) {
-    // Create a new node
-    Queue* newNode = (Queue*)malloc(sizeof(Queue));
+void insertQueue(Queue** head, const char* samochod) {
+    Queue* newNode = malloc(sizeof(Queue));
     strncpy(newNode->samochod, samochod, MAX - 1);
     newNode->samochod[MAX - 1] = '\0';
 
-    // Set the next pointer of the new node to the current head
-    newNode->next = *head;
-    // Update the head to point to the new node
-    *head = newNode;
-}
+    newNode->next = NULL;
 
-// Function to remove the last node from the linked list and return its data
-int pop(Queue** head) {
-    // If the list is empty
     if (*head == NULL) {
-        printf("Error: The list is empty.\n");
-        return -1;
+        *head = newNode;
+    } else {
+        Queue* current = *head;
+        while (current->next != NULL) {
+            current = current->next;
+        }
+        current->next = newNode;
     }
-
-    // If there is only one node in the list
-    if ((*head)->next == NULL) {
-        int id = (*head)->id;
-        free(*head);
-        *head = NULL;
-        return id;
-    }
-    // Traverse the list until the second last node
-    Queue* current = *head;
-    while (current->next->next != NULL) {
-        current = current->next;
-    }
-    // Remove the last node
-    Queue* lastNode = current->next;
-    int id = lastNode->id;
-    free(lastNode);
-    current->next = NULL;
-    return id;
 }
-// Function to print the linked list
-void printQueue(Queue* head) {
-    Queue* current = head;
 
+void popQueue(Queue** head) {
+    if (*head == NULL) {
+        printf("Error: The list is emptyP.\n");
+        return;
+    }
+
+    Queue* temp = *head;
+    *head = (*head)->next;
+    free(temp);
+}
+
+char* topQueue(Queue* head) {
+    if (head == NULL) {
+        printf("Error: The list is emptyT.\n");
+        return NULL;
+    }
+
+    return head->samochod;
+}
+
+void printQueue(Queue* head) {
     printf("Linked List:\n");
-    while (current != NULL) {
-        printf("ID: %d, Samochod: %s\n", current->id, current->samochod);
-        current = current->next;
+    if (head == NULL) {
+        printf("Empty.\n");
+    } else {
+        Queue* current = head;
+        while (current != NULL) {
+            printf("Samochod: %s\n", current->samochod);
+            current = current->next;
+        }
     }
     printf("\n");
 }
 
+int sizeQueue(Queue* head) {
+    int size = 0;
+    Queue* current = head;
+    while (current != NULL) {
+        size++;
+        current = current->next;
+    }
+    return size;
+}
+
 void* miasto_A(void* arg) {
-    int car_id = *(int*)arg;
-    while (1) {
-        usleep(rand() % 1000000 + 100000); // Czas między kolejnymi wywołaniami
+    Queue** queues = *(Queue***)arg;
+    Queue** qA = &queues[0];
+    Queue** qB = &queues[1];
+    
+    if (*qA != NULL) {
+        while (1) {
+            if(*qA==NULL)
+            {
+                break;
+            }
+            usleep(rand() % 1000000 + 100000);
+            pthread_mutex_lock(&mutex);
+            printf("MiastoA-%d KolejkaA-%d --> [>> %s >>] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA)-1, topQueue(*qA), sizeQueue(*qB), count_CityB);
+            insertQueue(qB, topQueue(*qA));
+            popQueue(qA);
 
-        pthread_mutex_lock(&mutex);
-        side_a_count++;
-
-        while (on_bridge > 0) {
-            pthread_cond_wait(&bridge_empty, &mutex);
+            pthread_mutex_unlock(&mutex);
         }
-
-        side_a_count--;
-
-        pthread_cond_broadcast(&bridge_empty);
-        pthread_mutex_unlock(&mutex);
-
-        printf("A-%d %d %d --> [>> %d >>] <-- %d B\n", car_id, side_a_count, on_bridge, car_id, side_b_count);
     }
 
     pthread_exit(NULL);
 }
 
 void* miasto_B(void* arg) {
-    int car_id = *(int*)arg;
-    while (1) {
-        usleep(rand() % 1000000 + 100000); // Czas między kolejnymi wywołaniami
-
-        pthread_mutex_lock(&mutex);
-        side_b_count++;
-
-        while (on_bridge > 0) {
-            pthread_cond_wait(&bridge_empty, &mutex);
+    Queue** queues = *(Queue***)arg;
+    Queue** qA = &queues[0];
+    Queue** qB = &queues[1];
+    
+    if (*qB != NULL) {
+        while (1) {
+            if(*qB==NULL)
+            {
+                break;
+            }
+            usleep(rand() % 1000000 + 100000);
+            pthread_mutex_lock(&mutex);
+            printf("MiastoA-%d KolejkaA-%d --> [<< %s <<] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), topQueue(*qB), sizeQueue(*qB)-1, count_CityB);
+            
+            insertQueue(qA, topQueue(*qB));
+            popQueue(qB);
+            
+            pthread_mutex_unlock(&mutex);
         }
-
-        side_b_count--;
-
-        pthread_cond_broadcast(&bridge_empty);
-        pthread_mutex_unlock(&mutex);
-
-        printf("A-%d %d %d --> [>> %d >>] <-- %d B\n", side_a_count, on_bridge, car_id, side_b_count, car_id);
     }
 
     pthread_exit(NULL);
 }
 
 int main(int argc, char** argv) {
-
-    int num_cars = 5; // Domyślna liczba samochodów
+    int num_cars = 5;
 
     if (argc > 1) {
         num_cars = atoi(argv[1]);
-        if (num_cars > MAX_CARS) {
-            printf("Zbyt wiele samochodów (maksymalna liczba: %d)\n", MAX_CARS);
+        if (num_cars > MAX) {
+            printf("Too many cars (maximum value: %d)\n", MAX);
             return 1;
         }
     }
+
     Queue* queueA = NULL;
     Queue* queueB = NULL;
+    Queue** queues = malloc(2 * sizeof(Queue*));
 
     for (int i = 0; i < num_cars; i++) {
         char car[20];
-        sprintf(samochod, "Samochód%d", i);
-        insert(&queueA, car);
+        sprintf(car, "Samochod%d", i + 1);
+        insertQueue(&queueA, car);
     }
+    popQueue(&queueA);
+    insertQueue(&queueB, "SamochodA");
+    printQueue(queueA);
+    printQueue(queueB);
+    queues[0] = queueA;
+    queues[1] = queueB;
 
-    srand(time(NULL));
+    pthread_t* tid1 = malloc(2 * sizeof(pthread_t));  // Poprawiony rozmiar alokacji
+    pthread_t* tid2 = malloc(2 * sizeof(pthread_t));  // Poprawiony rozmiar alokacji
+
 
     for (int i = 0; i < num_cars; i++) {
-        pthread_create(&cars_A[i], NULL, miasto_A, &car_ids[i]);
-        pthread_create(&cars_B[i], NULL, miasto_B, &car_ids[i]);
+        pthread_create(&tid1[i], NULL, miasto_A, &queues);
+        pthread_create(&tid2[i], NULL, miasto_B, &queues);
     }
 
     for (int i = 0; i < num_cars; i++) {
-        pthread_join(cars_A[i], NULL);
-        pthread_join(cars_B[i], NULL);
+        pthread_join(tid1[i], NULL);
+        pthread_join(tid2[i], NULL);
     }
+
+    
 
     pthread_mutex_destroy(&mutex);
-    pthread_cond_destroy(&bridge_empty);
 
     return 0;
 }
