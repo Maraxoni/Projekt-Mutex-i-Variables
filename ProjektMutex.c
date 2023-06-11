@@ -3,9 +3,10 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define MAX 100
-
+int info = false;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int count_CityA = 5;
@@ -55,15 +56,17 @@ char* topQueue(Queue* head) {
 }
 
 void printQueue(Queue* head) {
-    printf("Linked List:\n");
+    printf("Queue:\n");
     if (head == NULL) {
-        printf("Empty.\n");
+        printf("Empty.\n\n");
         return;
     } else {
         Queue* current = head;
+        int i = 1;
         while (current != NULL) {
-            printf("Samochod: %s\n", current->samochod);
+            printf("%d: %s\n", i, current->samochod);
             current = current->next;
+            i++;
         }
     }
     printf("\n");
@@ -86,18 +89,26 @@ void* miasto_A(void* arg) {
     Queue** qB = &queues[1];
 
     while (1) {
-        usleep(rand() % 1000000 + 100000);
+        usleep(rand() % 1000000 + 100000); // od 0.1 do 1.1 sekundy
         pthread_mutex_lock(&mutex);
         if (*qA == NULL) {
-            printf("Puste\n");
             pthread_mutex_unlock(&mutex);
             continue;
         }
-
-
-        printf("MiastoA-%d KolejkaA-%d --> [>> %s >>] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA)-1, topQueue(*qA), sizeQueue(*qB), count_CityB);
-        insertQueue(qB, topQueue(*qA));
+        char temp[MAX];
+        sprintf(temp, "%s", topQueue(*qA));
         popQueue(qA);
+        if(info==true){
+            printf("---\n");
+            printQueue(*qA);
+            printQueue(*qB);
+            printf("MiastoA-%d KolejkaA-%d --> [>> %s >>] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
+        } else {
+            printf("MiastoA-%d KolejkaA-%d --> [>> %s >>] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
+        }
+        
+        insertQueue(qB, temp);
+
         pthread_mutex_unlock(&mutex);
     }
 
@@ -110,16 +121,26 @@ void* miasto_B(void* arg) {
     Queue** qB = &queues[1];
 
     while (1) {
-        usleep(rand() % 1000000 + 100000);
+        usleep(rand() % 1000000 + 100000); // od 0.1 do 1.1 sekundy
         pthread_mutex_lock(&mutex);
         if (*qB == NULL) {
-            printf("Puste\n");
             pthread_mutex_unlock(&mutex);
             continue;
         }
-        printf("MiastoA-%d KolejkaA-%d --> [<< %s <<] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), topQueue(*qB), sizeQueue(*qB)-1, count_CityB);
-        insertQueue(qA, topQueue(*qB));
+        char temp[MAX];
+        sprintf(temp, "%s",topQueue(*qB));
         popQueue(qB);
+        if(info==true){
+            printf("---\n");
+            printQueue(*qA);
+            printQueue(*qB);
+            printf("MiastoA-%d KolejkaA-%d --> [<< %s <<] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
+        } else {
+            printf("MiastoA-%d KolejkaA-%d --> [<< %s <<] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
+        }
+        
+        insertQueue(qA, temp);
+        
         pthread_mutex_unlock(&mutex);
     }
 
@@ -127,23 +148,41 @@ void* miasto_B(void* arg) {
 }
 
 int main(int argc, char** argv) {
-    int num_cars = 5;
+    int cars = 5;
 
-    if (argc > 1) {
-        num_cars = atoi(argv[1]);
-        if (num_cars > MAX) {
-            printf("Too many cars (maximum value: %d)\n", MAX);
+    if (argc < 1 || argc > 4) {
+        printf("Invaid arguments. Try -N [Number of cars] or -info\n");
+        return 1; 
+    }
+
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-N") == 0) {
+            i++;
+            if (argv[i]==NULL || atoi(argv[i]) <= 0 ) {
+                printf("Invalid number of cars. Insert value between 1 and %d\n", MAX);
+                return 1; 
+            }
+            cars = atoi(argv[i]);
+        } else if (strcmp(argv[i], "-info") == 0) {
+            info = 1;
+        } else {
+            printf("Invalid argument: %s\n", argv[i]);
             return 1;
         }
     }
+    
+    
+
+    fprintf(stdout,"Nowa wartosc zmiennej info: %d\n", info);
+    fprintf(stdout,"Nowa wartosc zmiennej cars: %d\n", cars);
 
     Queue* queueA = NULL;
     Queue* queueB = NULL;
     Queue** queues = malloc(2 * sizeof(Queue*));
 
-    for (int i = 0; i < num_cars; i++) {
-        char car[20];
-        sprintf(car, "Samochod%d", i + 1);
+    for (int i = 0; i < cars; i++) {
+        char car[MAX];
+        sprintf(car, "Car%d", i + 1);
         insertQueue(&queueA, car);
     }
     printQueue(queueA);
@@ -151,16 +190,16 @@ int main(int argc, char** argv) {
     queues[0] = queueA;
     queues[1] = queueB;
 
-    pthread_t* tid1 = malloc(num_cars * sizeof(pthread_t));  // Poprawiony rozmiar alokacji
-    pthread_t* tid2 = malloc(num_cars * sizeof(pthread_t));  // Poprawiony rozmiar alokacji
+    pthread_t* tid1 = malloc(cars * sizeof(pthread_t));  // Poprawiony rozmiar alokacji
+    pthread_t* tid2 = malloc(cars * sizeof(pthread_t));  // Poprawiony rozmiar alokacji
 
 
-    for (int i = 0; i < num_cars; i++) {
+    for (int i = 0; i < cars; i++) {
         pthread_create(&tid1[i], NULL, miasto_A, &queues);
         pthread_create(&tid2[i], NULL, miasto_B, &queues);
     }
 
-    for (int i = 0; i < num_cars; i++) {
+    for (int i = 0; i < cars; i++) {
         pthread_join(tid1[i], NULL);
         pthread_join(tid2[i], NULL);
     }
