@@ -13,14 +13,14 @@ int count_CityA = 5;
 int count_CityB = 6;
 
 typedef struct Queue {
-    char samochod[MAX];
+    char nameCar[MAX];
     struct Queue* next;
 } Queue;
 
-void insertQueue(Queue** head, const char* samochod) {
+void insertQueue(Queue** head, const char* car) {
     Queue* newNode = malloc(sizeof(Queue));
-    strncpy(newNode->samochod, samochod, MAX - 1);
-    newNode->samochod[MAX - 1] = '\0';
+    strncpy(newNode->nameCar, car, MAX - 1);
+    newNode->nameCar[MAX - 1] = '\0';
 
     newNode->next = NULL;
 
@@ -52,7 +52,7 @@ char* topQueue(Queue* head) {
         return NULL;
     }
 
-    return head->samochod;
+    return head->nameCar;
 }
 
 void printQueue(Queue* head) {
@@ -64,7 +64,7 @@ void printQueue(Queue* head) {
         Queue* current = head;
         int i = 1;
         while (current != NULL) {
-            printf("%d: %s\n", i, current->samochod);
+            printf("%d: %s\n", i, current->nameCar);
             current = current->next;
             i++;
         }
