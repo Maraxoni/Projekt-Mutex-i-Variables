@@ -8,8 +8,8 @@
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-int count_CityA = 3;
-int count_CityB = 7;
+int count_CityA = 5;
+int count_CityB = 6;
 
 typedef struct Queue {
     char samochod[MAX];
@@ -58,6 +58,7 @@ void printQueue(Queue* head) {
     printf("Linked List:\n");
     if (head == NULL) {
         printf("Empty.\n");
+        return;
     } else {
         Queue* current = head;
         while (current != NULL) {
@@ -66,6 +67,7 @@ void printQueue(Queue* head) {
         }
     }
     printf("\n");
+    return;
 }
 
 int sizeQueue(Queue* head) {
@@ -82,21 +84,21 @@ void* miasto_A(void* arg) {
     Queue** queues = *(Queue***)arg;
     Queue** qA = &queues[0];
     Queue** qB = &queues[1];
-    
-    if (*qA != NULL) {
-        while (1) {
-            if(*qA==NULL)
-            {
-                break;
-            }
-            usleep(rand() % 1000000 + 100000);
-            pthread_mutex_lock(&mutex);
-            printf("MiastoA-%d KolejkaA-%d --> [>> %s >>] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA)-1, topQueue(*qA), sizeQueue(*qB), count_CityB);
-            insertQueue(qB, topQueue(*qA));
-            popQueue(qA);
 
+    while (1) {
+        usleep(rand() % 1000000 + 100000);
+        pthread_mutex_lock(&mutex);
+        if (*qA == NULL) {
+            printf("Puste\n");
             pthread_mutex_unlock(&mutex);
+            continue;
         }
+
+
+        printf("MiastoA-%d KolejkaA-%d --> [>> %s >>] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA)-1, topQueue(*qA), sizeQueue(*qB), count_CityB);
+        insertQueue(qB, topQueue(*qA));
+        popQueue(qA);
+        pthread_mutex_unlock(&mutex);
     }
 
     pthread_exit(NULL);
@@ -106,22 +108,19 @@ void* miasto_B(void* arg) {
     Queue** queues = *(Queue***)arg;
     Queue** qA = &queues[0];
     Queue** qB = &queues[1];
-    
-    if (*qB != NULL) {
-        while (1) {
-            if(*qB==NULL)
-            {
-                break;
-            }
-            usleep(rand() % 1000000 + 100000);
-            pthread_mutex_lock(&mutex);
-            printf("MiastoA-%d KolejkaA-%d --> [<< %s <<] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), topQueue(*qB), sizeQueue(*qB)-1, count_CityB);
-            
-            insertQueue(qA, topQueue(*qB));
-            popQueue(qB);
-            
+
+    while (1) {
+        usleep(rand() % 1000000 + 100000);
+        pthread_mutex_lock(&mutex);
+        if (*qB == NULL) {
+            printf("Puste\n");
             pthread_mutex_unlock(&mutex);
+            continue;
         }
+        printf("MiastoA-%d KolejkaA-%d --> [<< %s <<] <-- KolejkaB-%d MiastoB-%d\n", count_CityA, sizeQueue(*qA), topQueue(*qB), sizeQueue(*qB)-1, count_CityB);
+        insertQueue(qA, topQueue(*qB));
+        popQueue(qB);
+        pthread_mutex_unlock(&mutex);
     }
 
     pthread_exit(NULL);
@@ -147,15 +146,13 @@ int main(int argc, char** argv) {
         sprintf(car, "Samochod%d", i + 1);
         insertQueue(&queueA, car);
     }
-    popQueue(&queueA);
-    insertQueue(&queueB, "SamochodA");
     printQueue(queueA);
     printQueue(queueB);
     queues[0] = queueA;
     queues[1] = queueB;
 
-    pthread_t* tid1 = malloc(2 * sizeof(pthread_t));  // Poprawiony rozmiar alokacji
-    pthread_t* tid2 = malloc(2 * sizeof(pthread_t));  // Poprawiony rozmiar alokacji
+    pthread_t* tid1 = malloc(num_cars * sizeof(pthread_t));  // Poprawiony rozmiar alokacji
+    pthread_t* tid2 = malloc(num_cars * sizeof(pthread_t));  // Poprawiony rozmiar alokacji
 
 
     for (int i = 0; i < num_cars; i++) {
@@ -168,9 +165,9 @@ int main(int argc, char** argv) {
         pthread_join(tid2[i], NULL);
     }
 
-    
-
-    pthread_mutex_destroy(&mutex);
+    free(tid1);
+    free(tid2);
+    free(queues);
 
     return 0;
 }
