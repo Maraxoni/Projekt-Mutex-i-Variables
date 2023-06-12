@@ -10,9 +10,6 @@
 int info = false;
 //inicjalizacja statycznego mutexa
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-//inicjalizacja zmiennych warunkowych (condition variables)
-pthread_cond_t condA = PTHREAD_COND_INITIALIZER;
-pthread_cond_t condB = PTHREAD_COND_INITIALIZER;
 //wartosci stale samochodow w miastach
 int count_CityA = 5;
 int count_CityB = 6;
@@ -106,17 +103,11 @@ void* cityA(void* arg) {
     while (1) {
         usleep(rand() % 1000000 + 100000); //uspienie od 0.1 do 1.1 sekundy
         pthread_mutex_lock(&mutex); //zablokowanie mutexa
-        //sprawdzanie czy kolejka qA jest pusta
-        //jezeli jest pusta to program oczekuje na zmiane zmiennej warunkowej condA
-        while (*qA == NULL) {
-            pthread_cond_wait(&condA, &mutex);
-        }
         //sprawdzenie czy kolejka A jest pusta
         if (*qA == NULL) {
-            printf("---Blad zmiennych warunkowych---\n");
-            break;
+            pthread_mutex_unlock(&mutex);
+            continue;
         }
-        
         char temp[MAX]; //tymczsowe zapamietanie nazwy
         sprintf(temp, "%s", topQueue(*qA)); //przypisanie tymczasowej nazwie nazwy pierwszego elementu kolejki A
         popQueue(qA); //usuniecie pierwszego elementu kolejki A
@@ -131,7 +122,6 @@ void* cityA(void* arg) {
         
         insertQueue(qB, temp); //dodanie elementu z nazwa tymczasowa do kolejki B
 
-        pthread_cond_signal(&condB); //wyslanie sygnalu o zmianie condB
         pthread_mutex_unlock(&mutex); //odblokowanie mutexa
     }
     //wyjscie z watku
@@ -147,17 +137,11 @@ void* cityB(void* arg) {
     while (1) {
         usleep(rand() % 1000000 + 100000); //uspienie od 0.1 do 1.1 sekundy
         pthread_mutex_lock(&mutex); //zablokowanie mutexa
-        //sprawdzanie czy kolejka qB jest pusta
-        //jezeli jest pusta to program oczekuje na zmiane zmiennej warunkowej condB
-        while (*qB == NULL) {
-            pthread_cond_wait(&condB, &mutex);
-        }
         //sprawdzenie czy kolejka B jest pusta
         if (*qB == NULL) {
-            printf("---Blad zmiennych warunkowych---\n");
-            break;
+            pthread_mutex_unlock(&mutex);
+            continue;
         }
-
         char temp[MAX]; //tymczsowe zapamietanie nazwy
         sprintf(temp, "%s",topQueue(*qB)); //przypisanie tymczasowej nazwie nazwy pierwszego elementu kolejki B
         popQueue(qB); //usuniecie pierwszego elementu kolejki B
@@ -173,7 +157,6 @@ void* cityB(void* arg) {
         
         insertQueue(qA, temp); //dodanie elementu z nazwa tymczasowa do kolejki A
         
-        pthread_cond_signal(&condA); //wyslanie sygnalu o zmianie condA
         pthread_mutex_unlock(&mutex); //odblokowanie mutexa
     }
     //wyjscie z watku
