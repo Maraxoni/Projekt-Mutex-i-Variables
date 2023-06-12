@@ -1,4 +1,4 @@
 compilemutex: ProjektMutex.c
-	gcc ProjektMutex.c -o ProjektMutex -lssl -lcrypto
+	gcc ProjektMutex.c -o ProjektMutex -lssl -lcrypto -pthread
 compilevariables: ProjektVariables.c
-	gcc ProjektVariables.c -o ProjektVariables -lssl -lcrypto
+	gcc ProjektVariables.c -o ProjektVariables -lssl -lcrypto -pthread
