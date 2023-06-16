@@ -8,6 +8,7 @@
 #define MAX 100
 //zmienna okreslajaca czy maja sie wyswietlac zawartosci kolejek
 int info = false;
+int onBridge = 0;
 //inicjalizacja statycznego mutexa
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 //deklaracja struktury wezla kolejki
@@ -89,6 +90,11 @@ int sizeQueue(Queue* head) {
         current = current->next;
     }
     return size;
+}
+//losowe obliczenia
+void cityWait()
+{
+    
 }
 //watek miasta A pozwalajacy przemieszczenie sie pojazdu z kolejki queueA do kolejki queueB
 void* city(void* arg) {
