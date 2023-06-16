@@ -10,12 +10,9 @@
 int info = false;
 //inicjalizacja statycznego mutexa
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-//wartosci stale samochodow w miastach
-int count_CityA = 5;
-int count_CityB = 6;
 //deklaracja struktury wezla kolejki
 typedef struct Queue {
-    char nameCar[MAX];
+    pthread_t thread;
     struct Queue* next;
 } Queue;
 //dodawanie nowego elementu kolejki
@@ -60,7 +57,7 @@ char* topQueue(Queue* head) {
         return NULL;
     }
     //zwracanie nazwy pierwszej pozycji w kolejce
-    return head->nameCar;
+    return head->thread;
 }
 //wypisywanie zawartosci kolejki
 void printQueue(Queue* head) {
@@ -74,7 +71,7 @@ void printQueue(Queue* head) {
         int i = 1;
         //iteracja po wezlach az do konca kolejki wypisujac ich zawartosc
         while (current != NULL) {
-            printf("%d: %s\n", i, current->nameCar);
+            printf("%d: %s\n", i, current->thread);
             current = current->next;
             i++;
         }
@@ -94,23 +91,16 @@ int sizeQueue(Queue* head) {
     return size;
 }
 //watek miasta A pozwalajacy przemieszczenie sie pojazdu z kolejki queueA do kolejki queueB
-void* cityA(void* arg) {
-    //przypisanie wskaznikow do kolejek
-    Queue** queues = *(Queue***)arg;
-    Queue** qA = &queues[0];
-    Queue** qB = &queues[1];
+void* city(void* arg) {
+    int id = threadID;
+    char whichCity = 'A';
     //nieskonczona petla watku
     while (1) {
-        usleep(rand() % 1000000 + 100000); //uspienie od 0.1 do 1.1 sekundy
+        usleep(rand() % 1000000 + 10000000); //uspienie od 0.1 do 1.1 sekundy
         pthread_mutex_lock(&mutex); //zablokowanie mutexa
         //sprawdzenie czy kolejka A jest pusta
-        if (*qA == NULL) {
-            pthread_mutex_unlock(&mutex);
-            continue;
-        }
-        char temp[MAX]; //tymczsowe zapamietanie nazwy
-        sprintf(temp, "%s", topQueue(*qA)); //przypisanie tymczasowej nazwie nazwy pierwszego elementu kolejki A
-        popQueue(qA); //usuniecie pierwszego elementu kolejki A
+        
+
         //sprawdzenie czy program jest odpalony z parametrem -info, potencjalne wypisanie zawartosci kolejek
         if(info==true){
             printf("---\n");
@@ -119,50 +109,19 @@ void* cityA(void* arg) {
         }
         //wypisanie wartosci wedlug schematu
         printf("CityA-%d QueueA-%d --> [>> %s >>] <-- QueueB-%d CityB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
-        
-        insertQueue(qB, temp); //dodanie elementu z nazwa tymczasowa do kolejki B
-
-        pthread_mutex_unlock(&mutex); //odblokowanie mutexa
-    }
-    //wyjscie z watku
-    pthread_exit(NULL);
-}
-//watek miasta B pozwalajacy przemieszczenie sie pojazdu z kolejki queueB do kolejki queueA
-void* cityB(void* arg) {
-    //przypisanie wskaznikow do kolejek
-    Queue** queues = *(Queue***)arg;
-    Queue** qA = &queues[0];
-    Queue** qB = &queues[1];
-    //nieskonczona petla watku
-    while (1) {
-        usleep(rand() % 1000000 + 100000); //uspienie od 0.1 do 1.1 sekundy
-        pthread_mutex_lock(&mutex); //zablokowanie mutexa
-        //sprawdzenie czy kolejka B jest pusta
-        if (*qB == NULL) {
-            pthread_mutex_unlock(&mutex);
-            continue;
-        }
-        char temp[MAX]; //tymczsowe zapamietanie nazwy
-        sprintf(temp, "%s",topQueue(*qB)); //przypisanie tymczasowej nazwie nazwy pierwszego elementu kolejki B
-        popQueue(qB); //usuniecie pierwszego elementu kolejki B
-        //sprawdzenie czy program jest odpalony z parametrem -info, potencjalne wypisanie zawartosci kolejek
-        if(info==true){
-            printf("---\n");
-            printQueue(*qA);
-            printQueue(*qB);
-        }
-        //wypisanie wartosci wedlug schematu
         printf("CityA-%d QueueA-%d --> [<< %s <<] <-- QueueB-%d CityB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
         
-        
-        insertQueue(qA, temp); //dodanie elementu z nazwa tymczasowa do kolejki A
-        
         pthread_mutex_unlock(&mutex); //odblokowanie mutexa
     }
     //wyjscie z watku
     pthread_exit(NULL);
 }
 
+    //wyjscie z watku
+    pthread_exit(NULL);
+}
+
+//main
 int main(int argc, char** argv) {
     //domyslna ilosc samochodow
     int cars = 5;
@@ -191,36 +150,25 @@ int main(int argc, char** argv) {
     //wypisanie wartosci zmiennych cars i info
     fprintf(stdout,"info: %d\n", info);
     fprintf(stdout,"cars: %d\n", cars);
-    //deklaracja kolejek i tablicy kolejek
-    Queue* queueA = NULL;
-    Queue* queueB = NULL;
-    Queue** queues = malloc(2 * sizeof(Queue*));
-    //przypisanie samochodow do kolejki A
-    for (int i = 0; i < cars; i++) {
-        char car[MAX];
-        sprintf(car, "Car%d", i + 1);
-        insertQueue(&queueA, car);
-    }
-    //wypisanie poczotkowego stanu kolejek
+
+
     printf("Starting Queue:\n");
-    printQueue(queueA);
-    printQueue(queueB);
+
     printf("-----\n");
     //dodanie kolejek do tablicy kolejek
     queues[0] = queueA;
     queues[1] = queueB;
     //przypisanie pamieci watkom
-    pthread_t* tid1 = malloc(cars * sizeof(pthread_t));  // Alokacja pamieci
-    pthread_t* tid2 = malloc(cars * sizeof(pthread_t));  // Alokacja pamieci
+    pthread_t* tid = malloc(cars * sizeof(pthread_t));  // Alokacja pamieci
+    
     //stworzenie watkow
     for (int i = 0; i < cars; i++) {
-        pthread_create(&tid1[i], NULL, cityA, &queues);
-        pthread_create(&tid2[i], NULL, cityB, &queues);
+        carID=i+1;
+        pthread_create(&tid[i], NULL, city, carID);
     }
     //oczekiwanie na zakonczenie watkow
     for (int i = 0; i < cars; i++) {
-        pthread_join(tid1[i], NULL);
-        pthread_join(tid2[i], NULL);
+        pthread_join(tid[i], NULL);
     }
     //zwolnienie pamieci
     free(tid1);
