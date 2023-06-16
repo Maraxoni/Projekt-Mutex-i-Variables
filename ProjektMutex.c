@@ -4,188 +4,257 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
-//zdefiniowanie stalej wartosci maksymalnej liczby samochodow
+#include <semaphore.h>
+#include <time.h>
+
 #define MAX 100
-//zmienna okreslajaca czy maja sie wyswietlac zawartosci kolejek
+
 int info = false;
-int onBridge = 0;
-//inicjalizacja statycznego mutexa
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-//deklaracja struktury wezla kolejki
+pthread_mutex_t mutexQueueA = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutexQueueB = PTHREAD_MUTEX_INITIALIZER;
+sem_t semaphore;
+sem_t bridgeSemaphore;
+
 typedef struct Queue {
-    pthread_t thread;
+    int id;
+    char city;
     struct Queue* next;
 } Queue;
-//dodawanie nowego elementu kolejki
-void insertQueue(Queue** head, const char* car) {
-    //stworzenie nowego wezla
-    Queue* newNode = malloc(sizeof(Queue));
-    //przypisanie zmiennej nameCar zawartosci podanej na wejscie zmiennej car
-    strncpy(newNode->nameCar, car, MAX - 1);
-    //przypisanie \0 na koniec listy znakow i przypisanie kolejnemu wezlowi wartosci NULL
-    newNode->nameCar[MAX - 1] = '\0';
-    newNode->next = NULL;
-    //sprawdzenie czy kolejka jest pusta
-    if (*head == NULL) {
+
+Queue* queue = NULL;
+Queue* queuetemp = NULL;
+
+void insertQueue(Queue** head, Queue* newNode, pthread_mutex_t* mutex) {
+    pthread_mutex_lock(mutex); // Acquire mutex before modifying the queue
+    if (newNode == NULL) {
+        printf("Trying to add NULL\n");
+        pthread_mutex_unlock(mutex);
+        return;
+    } else if (*head == NULL) {
         *head = newNode;
-    }
-    else {
+        newNode->next = NULL;
+    } else {
         Queue* current = *head;
-        //przeiterowanie na koniec kolejki
         while (current->next != NULL) {
             current = current->next;
         }
-        //wstawienie do kolejki wezla newNode na ostatniej pozycji
         current->next = newNode;
+        newNode->next = NULL;
     }
+
+    pthread_mutex_unlock(mutex); // Release the mutex after modifying the queue
 }
-//usuwanie pierwszego elementu kolejki
-void popQueue(Queue** head) {
-    //sprawdzanie czy kolejka jest pusta
+void insertQueues(Queue** head, Queue* newNode, pthread_mutex_t* mutex) {
+    pthread_mutex_lock(mutex); // Acquire mutex before modifying the queue
+    if (newNode == NULL) {
+        printf("Trying to add NULL\n");
+        pthread_mutex_unlock(mutex);
+        return;
+    } else if (*head == NULL) {
+        *head = newNode;
+        newNode->next = NULL;
+    } else {
+        newNode->next = *head;
+        *head = newNode;
+    }
+
+    pthread_mutex_unlock(mutex); // Release the mutex after modifying the queue
+}
+void popQueue(Queue** head, pthread_mutex_t* mutex) {
+    pthread_mutex_lock(mutex); // Acquire mutex before modifying the queue
+
     if (*head == NULL) {
-        printf("Error: The queue is emptyP.\n");
+        printf("Error: The queue is empty.\n");
+        pthread_mutex_unlock(mutex); // Release the mutex if the queue is empty
         return;
     }
-    //usuwanie przez przypisanie headowi wezla nastepnego
+
     Queue* temp = *head;
     *head = (*head)->next;
     free(temp);
+
+    pthread_mutex_unlock(mutex); // Release the mutex after modifying the queue
 }
-//zwracanie nazwy
-char* topQueue(Queue* head) {
-    //sprawdzanie czy kolejka jest pusta
+
+int topQueue(Queue* head, pthread_mutex_t* mutex) {
+    pthread_mutex_lock(mutex); // Acquire mutex before accessing the queue
+
     if (head == NULL) {
-        printf("Error: The queue is emptyT.\n");
-        return NULL;
+        printf("Error: The queue is empty.\n");
+        pthread_mutex_unlock(mutex); // Release the mutex if the queue is empty
+        return 0;
     }
-    //zwracanie nazwy pierwszej pozycji w kolejce
-    return head->thread;
+
+    int id = head->id;
+
+    pthread_mutex_unlock(mutex); // Release the mutex after accessing the queue
+
+    return id;
 }
-//wypisywanie zawartosci kolejki
+
 void printQueue(Queue* head) {
     printf("Queue:\n");
-    //sprawdzenie czy kolejka jest pusta
     if (head == NULL) {
         printf("Empty.\n\n");
         return;
-    }
-    else {
+    } else {
         Queue* current = head;
         int i = 1;
-        //iteracja po wezlach az do konca kolejki wypisujac ich zawartosc
         while (current != NULL) {
-            printf("%d: %s\n", i, current->thread);
+            printf("%d: %d,%c\n", i, current->id, current->city);
             current = current->next;
             i++;
         }
     }
     printf("\n");
-    return;
 }
-//okreslenie wielkosci kolejki
-int sizeQueue(Queue* head) {
+
+void printQueues(Queue* head) {
+    printf("Queues:\n");
+    if (head == NULL) {
+        printf("Empty.\n\n");
+        return;
+    } else {
+        Queue* queueA = NULL;
+        Queue* queueB = NULL;
+        Queue* current = head;
+        while (current != NULL) {
+            Queue* temp = current; // Store the next pointer before modifying the current node
+            if (current->city == 'A') {
+                Queue* newNode = malloc(sizeof(Queue));
+                newNode->id = current->id;
+                newNode->city = current->city;
+                newNode->next = queueA;
+                queueA = newNode;
+            } else if (current->city == 'B') {
+                Queue* newNode = malloc(sizeof(Queue));
+                newNode->id = current->id;
+                newNode->city = current->city;
+                newNode->next = queueB;
+                queueB = newNode;
+            }
+
+            current = temp->next; // Move to the next node
+        }
+
+        printf("Queue A:\n");
+        printQueue(queueA);
+
+        printf("Queue B:\n");
+        printQueue(queueB);
+    }
+    printf("\n");
+}
+
+int sizeQueue(Queue* head, char check) {
+    pthread_mutex_lock(&mutex); // Acquire mutex before accessing the queue
+
     int size = 0;
     Queue* current = head;
-    //zliczanie ilosci wezlow
     while (current != NULL) {
-        size++;
+        if (current->city == check) {
+            size++;
+        }
         current = current->next;
     }
+
+    pthread_mutex_unlock(&mutex); // Release the mutex after accessing the queue
+
     return size;
 }
-//losowe obliczenia
-void cityWait()
-{
-    for (int i = 0;i < 1000000000;i++) {
-        int b = i + 1;
+
+void cityWait() {
+    for (int i = 0; i < 999999999 * (rand() % 3); i++) {
+        for (int j = 0; j < 9999999; j++) {
+            int b = i + 1;
+        }
     }
 }
-//watek miasta A pozwalajacy przemieszczenie sie pojazdu z kolejki queueA do kolejki queueB
+
 void* city(void* arg) {
-    int id = threadID;
-    char whichCity = 'A';
-    //nieskonczona petla watku
+    Queue* data = (Queue*)arg;
+    int idThread = data->id;
+    char cityThread = data->city;
     while (1) {
         cityWait();
-        pthread_mutex_lock(&mutex); //zablokowanie mutexa
-        //sprawdzenie czy kolejka A jest pusta
-        pritnf(">>");
-        if (whichCity = 'A'){
-            whichCity = B;
+
+        sem_wait(&semaphore); // Acquire semaphore
+
+        Queue* temp = malloc(sizeof(Queue));
+        queuetemp = temp;
+        temp->id = idThread;
+        temp->city = cityThread;
+
+        if (topQueue(queue, &mutex) == idThread) {
+            popQueue(&queue, &mutex);
+            printQueues(queue);
+            if (cityThread == 'A') {
+                printf("CityA-%d QueueA-%d --> [>> %d >>] <-- QueueB-%d CityB-%d\n", 0, sizeQueue(queue, 'A'), idThread, sizeQueue(queue, 'B'), 0);
+                cityThread = 'B';
+                temp->city = 'B';
+            } else {
+                printf("CityA-%d QueueA-%d --> [<< %d <<] <-- QueueB-%d CityB-%d\n", 0, sizeQueue(queue, 'A'), idThread, sizeQueue(queue, 'B'), 0);
+                cityThread = 'A';
+                temp->city = 'A';
+            }
+
+            insertQueue(&queue, temp, &mutex);
         }
-        else {
-            whichCity = A;
-        }
-        
-        //sprawdzenie czy program jest odpalony z parametrem -info, potencjalne wypisanie zawartosci kolejek
-       /* if (info == true) {
-            printf("---\n");
-            printQueue(*qA);
-            printQueue(*qB);
-        }
-        //wypisanie wartosci wedlug schematu
-        printf("CityA-%d QueueA-%d --> [>> %s >>] <-- QueueB-%d CityB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
-        printf("CityA-%d QueueA-%d --> [<< %s <<] <-- QueueB-%d CityB-%d\n", count_CityA, sizeQueue(*qA), temp, sizeQueue(*qB), count_CityB);
-        */
-        pthread_mutex_unlock(&mutex); //odblokowanie mutexa
+
+        sem_post(&semaphore); // Release semaphore
     }
-    //wyjscie z watku
+
     pthread_exit(NULL);
 }
 
-//wyjscie z watku
-pthread_exit(NULL);
-}
-
-//main
 int main(int argc, char** argv) {
-    //domyslna ilosc samochodow
     int cars = 5;
-    //sprawdzanie ilosci argumentow
-    if (argc < 1 || argc > 4) {
-        printf("Invaid arguments. Try -N [Number of cars] or -info\n");
+    srand(time(NULL));
+    if (argc < 2 || argc > 4) {
+        printf("Invalid arguments. Try -N [Number of cars] or -info\n");
         return 1;
     }
-    //sprawdzanie typow argumentow i wykonywanie odpowiednich zadan w zaleznosci od argumentu
+
     for (int i = 1; i < argc; i++) {
-        //sprawdzanie czy pojawil sie argument -N i przypisanie nowej wartosci dla ilosci samochodow
         if (strcmp(argv[i], "-N") == 0) {
             i++;
             if (argv[i] == NULL || atoi(argv[i]) <= 0) {
-                printf("Invalid number of cars. Insert value between 1 and %d\n", MAX);
+                printf("Invalid number of cars. Insert a value between 1 and %d\n", MAX);
                 return 1;
             }
             cars = atoi(argv[i]);
-        }
-        else if (strcmp(argv[i], "-info") == 0) { //sprawdzanie czy pojawil sie argument -info
+        } else if (strcmp(argv[i], "-info") == 0) {
             info = 1;
-        }
-        else {
+        } else {
             printf("Invalid argument: %s\n", argv[i]);
             return 1;
         }
     }
-    //wypisanie wartosci zmiennych cars i info
+
     fprintf(stdout, "info: %d\n", info);
     fprintf(stdout, "cars: %d\n", cars);
     printf("Starting Queue:\n");
-    //oddzielenie
     printf("-----\n");
-    //przypisanie pamieci watkom
-    pthread_t* tid = malloc(cars * sizeof(pthread_t));  // Alokacja pamieci
 
-    //stworzenie watkow
+    sem_init(&semaphore, 0, 1);
+    sem_init(&bridgeSemaphore, 0, 1);
+
+    pthread_t* tid = malloc(cars * sizeof(pthread_t));
+
     for (int i = 0; i < cars; i++) {
-        carID = i + 1;
-        pthread_create(&tid[i], NULL, city, carID);
+        Queue* data = malloc(sizeof(Queue));
+        data->id = i + 1;
+        data->city = 'A';
+        insertQueue(&queue, data, &mutex);
+        pthread_create(&tid[i], NULL, city, (void*)data);
     }
-    //oczekiwanie na zakonczenie watkow
+
     for (int i = 0; i < cars; i++) {
         pthread_join(tid[i], NULL);
     }
-    //zwolnienie pamieci
+
     free(tid);
-    free(queues);
 
     return 0;
 }
