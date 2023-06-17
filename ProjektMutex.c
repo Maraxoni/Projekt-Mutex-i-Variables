@@ -147,8 +147,9 @@ void* city(void* arg) {
     while (1) {
         //wykonywanie obliczen zajmujacych czas
         cityWait();
-        //zablokowanie mutexu 
+        //czekanie na sygnal semafora
         sem_wait(&semaphore);
+        //zablokowanie mutexu 
         pthread_mutex_lock(&mutexCity);
 
         Queue* temp = malloc(sizeof(Queue));
@@ -156,7 +157,7 @@ void* city(void* arg) {
         temp->city = cityThread;
         //dodanie watku do kolejki
         insertQueue(&queue, temp);
-
+        //usuniecie pierwszego elementu kolejki
         popQueue(&queue);
         //wykonanie zamiany miasta watku i wypisanie zawartosci kolejek
         if (cityThread == 'A') {
@@ -176,8 +177,9 @@ void* city(void* arg) {
             printf("---\n");
             printQueues(queue);
         }
-
+        //wyslanie sygnalu o odblokowaniu semafora
         sem_post(&semaphore);
+        //odblokowanie mutexa
         pthread_mutex_unlock(&mutexCity);
     }
 
